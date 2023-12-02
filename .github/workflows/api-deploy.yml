@@ -1,0 +1,54 @@
+name: deploy api
+run-name: ${{ github.actor }} is deploying api 🚀
+on:
+  workflow_dispatch:
+jobs:
+  restart-api-service:
+    runs-on: ubuntu-latest
+    #environment:
+    #  name: mainnet
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Generate .env file for docker-compose
+        uses: SpicyPizza/create-envfile@v2.0
+        with:
+          envkey_CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
+          envkey_GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          envkey_JWT_TOKEN_EXPIRE: ${{ vars.JWT_TOKEN_EXPIRE }}
+          envkey_JWT_TOKEN_SECRET: ${{ secrets.JWT_TOKEN_SECRET }}
+          envkey_JWT_REFRESH_TOKEN_SECRET: ${{ secrets.JWT_REFRESH_TOKEN_SECRET }}
+          envkey_JWT_VERIFY_TOKEN_SECRET: ${{ secrets.JWT_VERIFY_TOKEN_SECRET }}
+          envkey_WEB_SEARCH_BASE_URL: ${{ vars.WEB_SEARCH_BASE_URL }}
+          envkey_CMS_SEARCH_BASE_URL: ${{ vars.CMS_SEARCH_BASE_URL }}
+          envkey_BLOCKFROST_PROJECT_ID: ${{ secrets.BLOCKFROST_PROJECT_ID }}
+          envkey_BLOCKFROST_URL: ${{ vars.BLOCKFROST_URL }}
+          envkey_JWT_RENEW_TOKEN_EXPIRE: ${{ vars.JWT_RENEW_TOKEN_EXPIRE }}
+          directory: .
+          file_name: .env
+          fail_on_empty: false
+      - name: Rsync .env file to remote server at docker-configs
+        uses: easingthemes/ssh-deploy@v2
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ARGS: ""
+          SOURCE: ".env"
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          TARGET: /home/${{ secrets.REMOTE_USER }}/creport_2.0_deploy/docker-configs
+      - name: restart api
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/${{ secrets.REMOTE_USER }}/creport_2.0_deploy/docker-configs
+            docker-compose -f docker-compose.yml stop api
+            docker-compose -f docker-compose.yml rm -f api
+            cat docker-compose.template.yml > docker-compose.yml
+            sed -i "s|API_MAINNET_TAG|${{ vars.API_MAINNET_TAG }}|g" docker-compose.yml
+            aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 121427815363.dkr.ecr.ap-southeast-1.amazonaws.com/creport
+            docker-compose -f docker-compose.yml up -d api
+      - run: echo "🍏 This job's status is ${{ job.status }}."

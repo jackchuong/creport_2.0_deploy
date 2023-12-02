@@ -1,0 +1,28 @@
+name: deploy frontend
+run-name: ${{ github.actor }} is deploying frontend 🚀
+on:
+ workflow_dispatch:
+jobs:
+  restart-api-service:
+    runs-on: ubuntu-latest
+    environment:
+      name: mainnet
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: restart frontend
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/${{ secrets.REMOTE_USER }}/creport_2.0_deploy/docker-configs
+            docker-compose -f docker-compose.yml stop nginx
+            docker-compose -f docker-compose.yml rm -f nginx
+            cat docker-compose.template.yml > docker-compose.yml
+            sed -i "s|FRONTEND_MAINNET_TAG|${{ vars.FRONTEND_MAINNET_TAG }}|g" docker-compose.yml
+            aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 121427815363.dkr.ecr.ap-southeast-1.amazonaws.com/creport
+            docker-compose -f docker-compose.yml up -d nginx
+      - run: echo "🍏 This job's status is ${{ job.status }}."
