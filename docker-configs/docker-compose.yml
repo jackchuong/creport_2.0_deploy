@@ -16,7 +16,7 @@ services:
       - creportnet
 
   nginx:
-    image: FRONTEND_MAINNET_TAG
+    image: nginx
     container_name: nginx
     ports:
       - 80:80
@@ -48,7 +48,7 @@ services:
       - creportnet
 
   api:
-    image: API_MAINNET_TAG
+    image: 121427815363.dkr.ecr.ap-southeast-1.amazonaws.com/creport:api-mainnet-1.0.0
     container_name: api
     ports:
       - 3000:3000
